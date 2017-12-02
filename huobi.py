@@ -34,7 +34,7 @@ def qqsmtp(money):
     except smtplib.SMTPException,e:
         print "Falied,%s"%e
 
-def tupo_1(real,Open,Close,High,Low):
+def tupo_1(real,Open,Close,High,Low,b):
     '''
     if Open > Close:
         med = (Open-Close)/2.0 + Close
@@ -46,11 +46,11 @@ def tupo_1(real,Open,Close,High,Low):
         
             
         if 1==1:#也设无条件执行
-            kaishi_1()
+            kaishi_1(b)
     
     return 1
     
-def tupo_2(real,Open,Close,High,Low):
+def tupo_2(real,Open,Close,High,Low,b):
     '''
     if Open > Close:
         med = (Open-Close)/2.0 + Close
@@ -64,10 +64,10 @@ def tupo_2(real,Open,Close,High,Low):
             
           
         if 1 == 1:
-            kaishi_2()
+            kaishi_2(b)
                     
     return 1
-def kaishi_1():
+def kaishi_1(b):
     global time_1
     
     #time.sleep(2)
@@ -92,23 +92,28 @@ def kaishi_1():
     
     #time.sleep(2)
     while(1):
+        
         while(1):
+            time.sleep(2)
             try:
-                r = requests.get('http://120.24.241.55:61002/getDataHis.ashx?type=stock&min=5&symbol=EURUSD').text
+                r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=30').text
                 break
             except:
-                #time.sleep(2)
+                time.sleep(2)
                 continue
-        n = demjson.decode(r[11:-1])
-        shijian = n['min'][-1]
+        
+        n = demjson.decode(r)
+        shijian = n['data'][0]['id'] #return int
         if shijian != time_1:
             a = []
-            for i in range(-21,-1):
-                a.append(float(n['data'][i][3]))
-            
+            for i in range(1,25):
+                a.append(n['data'][i]['close']) #return float, this is close value
+                
+            a.reverse()
             a = np.array(a)
             dif,dea,bar = talib.MACD(a,fastperiod=6,slowperiod=13,signalperiod=6)
-            if bar[-1] < 0:
+
+            if bar[-1] < b:
                 print u"bar<0加1"
                 kk += 1
             time_1 = shijian
