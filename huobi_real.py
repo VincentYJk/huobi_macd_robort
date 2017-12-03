@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """
+Created on Sun Dec 03 23:39:42 2017
+说明:此版本为火币比特币实盘版本
+@author: elliott
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Sat Dec 02 14:44:30 2017
-说明:此为火币模拟盘版本
+
 @author: elliott
 """
 
@@ -39,11 +46,19 @@ def qqsmtp(money):
 #突破后执行的函数
 def tupo_1(real,Open,Close,High,Low,b):
     
-    
+    '''
+    if Open > Close:
+        med = (Open-Close)/2.0 + Close
+    else:
+        med = (Close-Open)/2.0 + Open
+    '''
     if 1==1: #暂设无条件执行
         print u"符合条件进行向上突破!"
+        
+            
         if 1==1:#也设无条件执行
             kaishi_1(b)
+    
     return 1
     
 def get_5min_med(): #获取最近5分钟的中间价
@@ -103,7 +118,7 @@ def get_smavalue(how_long): #获取当前SMA值  ep: how_long 必须为int型
     a.reverse() #此处翻转是为了下面的MACD及SMA生成        
     a = np.array(a)
         
-    real = talib.SMA(a,timeperiod=how_long) #SMA线
+    real = talib.SMA(a,timeperiod=how_long) #EMA线
     
     return real[-2] #-2无误
     
@@ -113,15 +128,15 @@ def success_sma20(v):
     
     while(1):
         bitcoin_med = get_5min_med() #获取5min中间价格
-        sma_value = get_smavalue(20) #获取与之对应的SMA20日均线
+        sma_value = get_smavalue(20) #获取与之对应的SMA10日均线
         bitcoin_value = get_value()
     
         if bitcoin_value <= zhisun:  #止损措施:此处当前价格低于止损线，全仓卖出
-            sell(bitcoin_value,1)
+            sell(bitcoin_value,2)
             break
     
         if bitcoin_med <= sma_value: #止盈措施:当前价格中价值低于SMA线，全仓卖出
-            sell(bitcoin_value,1)
+            sell(bitcoin_value,2)
             break
     return 1 #返回成功标志位
 
@@ -129,10 +144,10 @@ def pc(shijian,b,v):#ep:  shijian 循环处理时用的时间戳,b:MACD柱子值
     bitcoin_value = get_value() #获取价格
     sma_value = get_smavalue(10) #获取与之对应的SMA10日均线
     if bitcoin_value > sma_value: #先清半仓,若大于十日线则开始20日均线止盈措施
-        sell(bitcoin_value,2) #清半仓
+        sell(bitcoin_value,1) #清半仓
         success_sma20(v) #开始20sma止盈措施
     else:
-        sell(bitcoin_value,1) #否则全仓卖出
+        sell(bitcoin_value,2) #否则全仓卖出
     
     
 
@@ -144,12 +159,12 @@ def buy(value): #买入默认全仓买入
     #得到币的数量 return float
     
     bitcoin = bitcoin_num #更新持币数量
-    zijin = zijin*0.003 #更新持有现金数
+    zijin = zijin*0.003
     return 1 #返回1表示成功买入
     
 
 
-def sell(value,status): # ep: value:实时币价,status：1全仓卖出还是2半仓卖出
+def sell(value,status): # ep: value:实时币价,status：1半仓卖出还是2全仓卖出
     global zijin
     global bitcoin
     if status == 1:
@@ -163,15 +178,23 @@ def sell(value,status): # ep: value:实时币价,status：1全仓卖出还是2�
 def kaishi_1(b):
     global time_1
     
-    bitcoin_value = get_value() #获取当前比特币实时价格
-    
-    buy(bitcoin_value) #执行买单
-    zhisun = bitcoin_value*(1-0.005) #设止损为跌0.5%
-    print u"下单价格:"+str(bitcoin_value)
-    print u"向上突破止损价:"+str(zhisun)
+    #time.sleep(2)
+    while(1):
+        try:
+            r = requests.get('https://api.huobi.pro/market/detail/merged?symbol=btcusdt').text
+            break
+        except:
+            #time.sleep(2)
+            continue
+    n = demjson.decode(r)
+    value = n['tick']['close'] #float
+    buy(value) #执行买单
+    zhisun = value*(1-0.005) #设止损为跌0.5%
+    print u"下单价格:"+str(value)
+    print u"向上突破第一阶段,止损价:"+str(zhisun)
     
     f = open(u"下单.txt","a+")
-    f.write("向上突破下单价格:"+str(bitcoin_value)+"止损价:"+str(zhisun)+"\n")
+    f.write("向上突破第一阶段下单价格:"+str(value)+"止损价:"+str(zhisun)+"\n")
     f.close()
     
     
@@ -191,7 +214,7 @@ def kaishi_1(b):
         shijian = n['data'][0]['id'] #return int
         if shijian != time_1:
             a = []
-            for i in range(1,30):
+            for i in range(1,25):
                 a.append(n['data'][i]['close']) #return float, this is close value
                 
             a.reverse()
@@ -199,7 +222,7 @@ def kaishi_1(b):
             dif,dea,bar = talib.MACD(a,fastperiod=6,slowperiod=13,signalperiod=6)
 
             if bar[-1] < b:#当macd柱小于前柱时平半仓
-               pc(shijian,bar[-1],bitcoin_value) #进入平半仓函数
+               pc(shijian,bar[-1],value) #进入平半仓函数
             time_1 = shijian
         #time.sleep(2)
         print u"正在进行实时价格监控-----------"
@@ -208,7 +231,7 @@ def kaishi_1(b):
         
         if bitcoin_value <= zhisun:
             print u"触及止损线，向上突破第一阶段止损完毕"
-            sell(bitcoin_value,1) #全仓卖出止损
+            sell(bitcoin_value,2) #全仓卖出止损
             break
         
     return 1
@@ -263,7 +286,7 @@ if __name__ == '__main__':
         a = [] #数组暂存收盘价用来接下来MACD生成
         
         for i in range(1,25):
-            a.append(n['data'][i]['close']) #return float, this is close value,消去刚出现的价格
+            a.append(n['data'][i]['close']) #return float, this is close value
         
         
         Open,Close,High,Low = n['data'][1]['open'],n['data'][1]['close'],n['data'][1]['high'],n['data'][1]['low']
@@ -271,7 +294,7 @@ if __name__ == '__main__':
         a = np.array(a)
         
         real = talib.EMA(a,timeperiod=10) #EMA线  
-        dif,dea,bar = talib.MACD(a,fastperiod=6,slowperiod=13,signalperiod=6) #MACD 参数 6,13,6
+        dif,dea,bar = talib.MACD(a,fastperiod=6,slowperiod=13,signalperiod=6) #MACD 参数 6,13
         
         
         if bar[-2] < 0 and bar[-1] > 0:
