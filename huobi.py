@@ -54,7 +54,27 @@ def tupo_1(real,Open,Close,High,Low,b):
     
     return 1
     
-
+def get_5min_med(): #获取最近5分钟的中间价
+    while(1):
+        time.sleep(2)
+        try:
+            print "进入"
+            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=1',timeout=5).text        
+        except:
+            time.sleep(2)
+            print "出错"
+            continue
+    Open,Close = n['data'][0]['open'],n['data'][0]['close']
+    
+    #获取实时的中间价
+    if Open > Close:
+        med = (Open-Close)/2.0 + Close #return float
+    else:
+        med = (Close-Open)/2.0 + Open
+    
+    return med
+    
+        
     
 def get_value(): #获取当前币价
     while(1):
@@ -80,6 +100,7 @@ def get_smavalue(how_long): #获取当前SMA值  ep: how_long 必须为int型
             time.sleep(2)
             print "出错"
             continue
+    n = demjson.decode(r)
     a = [] #数组暂存收盘价用来接下来MACD,SMA生成
         
     for i in range(1,25):
@@ -94,15 +115,24 @@ def get_smavalue(how_long): #获取当前SMA值  ep: how_long 必须为int型
     return real[-2] #-2无误
     
 
-def success_sma20():
+def success_sma20(v):
+    zhisun = v #将下单时的价格设置为止损价
+    bitcoin_med = get_5min_med() #获取5min中间价格
+    sma_value = get_smavalue(20) #获取与之对应的SMA10日均线
+    bitcoin_value = get_value()
     
+    if bitcoin_value <= zhisun:
+        sell()
+    
+    if bitcoin_med <= sma_value:
+        sell()
 
 def pc(shijian,b,v):#ep:  shijian 循环处理时用的时间戳,b:MACD柱子值,v下单时的价格
     bitcoin_value = get_value() #获取价格
     sma_value = get_smavalue(10) #获取与之对应的SMA10日均线
     if bitcoin_value > sma_value: #先清半仓,若大于十日线则开始20日均线止盈措施
         sell(bitcoin_value,1) #清半仓
-        success_sma20() #开始20sma止盈措施
+        success_sma20(v) #开始20sma止盈措施
     else:
         sell(bitcoin_value,2) #否则全仓卖出
     
