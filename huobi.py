@@ -42,7 +42,7 @@ def tupo_1(real,Open,Close,High,Low,b):
     
     if 1==1: #暂设无条件执行
         print u"符合条件进行向上突破!"
-        if 1==1:#也设无条件执行
+        if 1 == 1:#也设无条件执行
             kaishi_1(b)
     return 1
     
@@ -50,11 +50,11 @@ def get_5min_med(): #获取最近5分钟的中间价
     while(1):
         time.sleep(2)
         try:
-            print "进入"
+            print u"进入"
             r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=1',timeout=5).text        
         except:
             time.sleep(2)
-            print "出错"
+            print u"出错"
             continue
     n = demjson.decode(r)
     Open,Close = n['data'][0]['open'],n['data'][0]['close']
@@ -73,13 +73,14 @@ def get_value(): #获取当前币价
     while(1):
         try:
             r = requests.get('https://api.huobi.pro/market/detail/merged?symbol=btcusdt').text
-            n = demjson.decode(r)
+            
             break
         except:
             #time.sleep(2)
             continue
     
-    
+    n = demjson.decode(r)
+    print u"爬取实时价格成功"
     return n['tick']['close'] # return float
     
     
@@ -87,15 +88,16 @@ def get_smavalue(how_long): #获取当前SMA值  ep: how_long 必须为int型
     while(1):
         time.sleep(2)
         try:
-            print "进入"
-            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=25',timeout=5).text        
+            print "进入爬取SMA线"
+            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=25',timeout=5).text
+            break
         except:
             time.sleep(2)
-            print "出错"
+            print "SMA爬取出错"
             continue
     n = demjson.decode(r)
     a = [] #数组暂存收盘价用来接下来MACD,SMA生成
-        
+            
     for i in range(1,25):
         a.append(n['data'][i]['close']) #return float, this is close value
         
@@ -110,10 +112,10 @@ def get_smavalue(how_long): #获取当前SMA值  ep: how_long 必须为int型
 
 def success_sma20(v):
     zhisun = v #将下单时的价格设置为止损价
-    
+    print "成功进入sma20阶段"
     while(1):
         bitcoin_med = get_5min_med() #获取5min中间价格
-        sma_value = get_smavalue(20) #获取与之对应的SMA20日均线
+        sma_value = get_smavalue(20) #获取与之对应的5分钟SMA20日均线
         bitcoin_value = get_value()
     
         if bitcoin_value <= zhisun:  #止损措施:此处当前价格低于止损线，全仓卖出
@@ -128,6 +130,7 @@ def success_sma20(v):
 def pc(shijian,b,v):#ep:  shijian 循环处理时用的时间戳,b:MACD柱子值,v下单时的价格
     bitcoin_value = get_value() #获取价格
     sma_value = get_smavalue(10) #获取与之对应的SMA10日均线
+    print "成功进入中间平仓阶段"
     if bitcoin_value > sma_value: #先清半仓,若大于十日线则开始20日均线止盈措施
         sell(bitcoin_value,2) #清半仓
         success_sma20(v) #开始20sma止盈措施
@@ -180,6 +183,7 @@ def kaishi_1(b):
         
         while(1):
             time.sleep(2)
+            print "正在进行第一阶段判断bar值过程"
             try:
                 r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=30').text
                 break
@@ -189,6 +193,7 @@ def kaishi_1(b):
         
         n = demjson.decode(r)
         shijian = n['data'][0]['id'] #return int
+        print "22"
         if shijian != time_1:
             a = []
             for i in range(1,30):
@@ -200,7 +205,14 @@ def kaishi_1(b):
 
             if bar[-1] < b:#当macd柱小于前柱时平半仓
                pc(shijian,bar[-1],bitcoin_value) #进入平半仓函数
+               print "当前持有资金为:"+str(zijin)
+               f = open(u"资金.txt","a+")
+               f.write("当前资金量:"+str(zijin)+"\n")
+               f.close()
+               qqsmtp(zijin)
+               break #退出循环，到主程序进程
             time_1 = shijian
+            b = bar[-1]
         #time.sleep(2)
         print u"正在进行实时价格监控-----------"
         
@@ -239,11 +251,11 @@ if __name__ == '__main__':
     while(1):
         time.sleep(2)
         try:
-            print "进入"
+            print "进入初始判断阶段"
             r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=25',timeout=5).text        
         except:
             time.sleep(2)
-            print "出错"
+            print "初始判断阶段出错"
             continue
         n = demjson.decode(r)
         shijian = n['data'][0]['id'] #return int  
@@ -270,11 +282,11 @@ if __name__ == '__main__':
         a.reverse() #此处翻转是为了下面的MACD生成        
         a = np.array(a)
         
-        real = talib.EMA(a,timeperiod=10) #EMA线  
+        real = talib.SMA(a,timeperiod=10) #EMA线  
         dif,dea,bar = talib.MACD(a,fastperiod=6,slowperiod=13,signalperiod=6) #MACD 参数 6,13,6
         
         
-        if bar[-2] < 0 and bar[-1] > 0:
+        if  bar[-2] < 0 and bar[-1] > 0:
             print "向上突破"
             pp = tupo_1(float(real[-1]),Open,Close,High,Low,bar[-1]) #向上突破
 
