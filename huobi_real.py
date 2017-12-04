@@ -5,12 +5,6 @@ Created on Sun Dec 03 23:39:42 2017
 @author: elliott
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Dec 02 14:44:30 2017
-
-@author: elliott
-"""
 
 from email.mime.text import MIMEText
 import smtplib
@@ -37,7 +31,7 @@ def qqsmtp(money):
         s.login(_user, _pwd)
         s.sendmail(_user, _to, msg.as_string())
         s.quit()
-        print "Success!"
+        print('Success!')
     except smtplib.SMTPException,e:
         print "Falied,%s"%e
 

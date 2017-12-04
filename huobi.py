@@ -51,7 +51,8 @@ def get_5min_med(): #获取最近5分钟的中间价
         time.sleep(2)
         try:
             print u"进入"
-            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=1',timeout=5).text        
+            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=1',timeout=5).text
+            break        
         except:
             time.sleep(2)
             print u"出错"
