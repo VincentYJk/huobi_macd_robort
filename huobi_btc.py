@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Dec 02 14:44:30 2017
-说明:此为火币模拟盘版本
+说明:此为火币btc模拟盘版本
 @author: elliott
 """
 
@@ -36,6 +36,7 @@ def qqsmtp(money):
 
 
 
+
 #突破后执行的函数
 def tupo_1(real,Open,Close,High,Low,b):
     
@@ -48,13 +49,14 @@ def tupo_1(real,Open,Close,High,Low,b):
     
 def get_5min_med(): #获取最近5分钟的中间价
     while(1):
-        time.sleep(2)
+        time.sleep(5)
         try:
             print u"进入"
-            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=1',timeout=5).text
+            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=15min&size=1',timeout=8).text
             break        
         except:
-            time.sleep(2)
+            time.sleep(5)
+            qqsmtp_error('error_4_btc')
             print u"出错"
             continue
     n = demjson.decode(r)
@@ -73,11 +75,13 @@ def get_5min_med(): #获取最近5分钟的中间价
 def get_value(): #获取当前币价
     while(1):
         try:
-            r = requests.get('https://api.huobi.pro/market/detail/merged?symbol=btcusdt').text
+            time.sleep(5)
+            r = requests.get('https://api.huobi.pro/market/detail/merged?symbol=btcusdt',timeout=8).text
             
             break
         except:
-            #time.sleep(2)
+            qqsmtp_error('error_5_btc')
+            time.sleep(5)
             continue
     
     n = demjson.decode(r)
@@ -87,14 +91,15 @@ def get_value(): #获取当前币价
     
 def get_smavalue(how_long): #获取当前SMA值  ep: how_long 必须为int型
     while(1):
-        time.sleep(2)
+        time.sleep(5)
         try:
-            print "进入爬取SMA线"
-            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=25',timeout=5).text
+            print u"进入爬取SMA线"
+            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=15min&size=25',timeout=8).text
             break
         except:
-            time.sleep(2)
-            print "SMA爬取出错"
+            time.sleep(5)
+            qqsmtp_error('error_3_btc')
+            print u"SMA爬取出错"
             continue
     n = demjson.decode(r)
     a = [] #数组暂存收盘价用来接下来MACD,SMA生成
@@ -113,7 +118,7 @@ def get_smavalue(how_long): #获取当前SMA值  ep: how_long 必须为int型
 
 def success_sma20(v):
     zhisun = v #将下单时的价格设置为止损价
-    print "成功进入sma20阶段"
+    print u"成功进入sma20阶段"
     while(1):
         bitcoin_med = get_5min_med() #获取5min中间价格
         sma_value = get_smavalue(20) #获取与之对应的5分钟SMA20日均线
@@ -131,7 +136,7 @@ def success_sma20(v):
 def pc(shijian,b,v):#ep:  shijian 循环处理时用的时间戳,b:MACD柱子值,v下单时的价格
     bitcoin_value = get_value() #获取价格
     sma_value = get_smavalue(10) #获取与之对应的SMA10日均线
-    print "成功进入中间平仓阶段"
+    print u"成功进入中间平仓阶段"
     if bitcoin_value > sma_value: #先清半仓,若大于十日线则开始20日均线止盈措施
         sell(bitcoin_value,2) #清半仓
         success_sma20(v) #开始20sma止盈措施
@@ -166,6 +171,7 @@ def sell(value,status): # ep: value:实时币价,status：1全仓卖出还是2�
 
 def kaishi_1(b):
     global time_1
+    global zijin
     
     bitcoin_value = get_value() #获取当前比特币实时价格
     
@@ -183,13 +189,14 @@ def kaishi_1(b):
     while(1):
         
         while(1):
-            time.sleep(2)
-            print "正在进行第一阶段判断bar值过程"
+            time.sleep(5)
+            print u"正在进行第一阶段判断bar值过程"
             try:
-                r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=30').text
+                r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=15min&size=30',timeout=8).text
                 break
             except:
-                time.sleep(2)
+                qqsmtp_error('error_2_btc')
+                time.sleep(5)
                 continue
         
         n = demjson.decode(r)
@@ -206,9 +213,14 @@ def kaishi_1(b):
 
             if bar[-1] < b:#当macd柱小于前柱时平半仓
                pc(shijian,bar[-1],bitcoin_value) #进入平半仓函数
-               print "当前持有资金为:"+str(zijin)
+               print u"当前持有资金为:"+str(zijin)
                f = open(u"资金.txt","a+")
                f.write("当前资金量:"+str(zijin)+"\n")
+               f.close()
+               
+               #写入现金持仓文本
+               f = open("money.txt","w+")
+               f.write(str(zijin))
                f.close()
                qqsmtp(zijin)
                break #退出循环，到主程序进程
@@ -222,8 +234,18 @@ def kaishi_1(b):
         if bitcoin_value <= zhisun:
             print u"触及止损线，向上突破第一阶段止损完毕"
             sell(bitcoin_value,1) #全仓卖出止损
+            print u"当前持有资金为:"+str(zijin)
+            f = open(u"资金.txt","a+")
+            f.write("当前资金量:"+str(zijin)+"\n")
+            f.close()
+               
+            #写入现金持仓文本
+            f = open("money.txt","w+")
+            f.write(str(zijin))
+            f.close()
+            qqsmtp(zijin)
             break
-        
+            
     return 1
         
 
@@ -239,9 +261,12 @@ if __name__ == '__main__':
     
 
 
-
+    f = open('money.txt','r+')
+    zijin = float(f.readline()) #读取文本中设置的初始资金,模拟盘专用
+    f.close()
+    
     all_zijin = 0
-    zijin = 5000 #出事资金5000
+    
     bitcoin = 0  #出事比特币数量0
     ss = 0
     time_1 = 0
@@ -250,13 +275,14 @@ if __name__ == '__main__':
     
     
     while(1):
-        time.sleep(2)
+        time.sleep(5)
         try:
-            print "进入初始判断阶段"
-            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=5min&size=25',timeout=5).text        
+            print u"进入初始判断阶段"
+            r = requests.get('https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=15min&size=25',timeout=8).text        
         except:
-            time.sleep(2)
-            print "初始判断阶段出错"
+            time.sleep(5)
+            qqsmtp_error('error_1_btc')
+            print u"初始判断阶段出错"
             continue
         n = demjson.decode(r)
         shijian = n['data'][0]['id'] #return int  
@@ -287,7 +313,20 @@ if __name__ == '__main__':
         dif,dea,bar = talib.MACD(a,fastperiod=6,slowperiod=13,signalperiod=6) #MACD 参数 6,13,6
         
         
-        if  bar[-2] < 0 and bar[-1] > 0:
-            print "向上突破"
-            pp = tupo_1(float(real[-1]),Open,Close,High,Low,bar[-1]) #向上突破
+        if  (bar[-2] < 0 and bar[-1] > 0) and (dif[-1] < 0 and dea[-1] < 0):
+            f = open('status.txt','r+')
+            status = float(f.readline()) #读取持仓状态,是否有其他币种的持仓
+            f.close()
+            if status == 0:
+                f = open('money.txt','r+')
+                zijin = float(f.readline()) #读取文本中设置的初始资金,模拟盘专用
+                f.close()
+                print "向上突破"
+                f = open('status.txt','w+')
+                f.write('1') #锁仓
+                f.close()
+                pp = tupo_1(float(real[-1]),Open,Close,High,Low,bar[-1]) #向上突破
+                f = open('status.txt','w+')
+                f.write('0') #开仓
+                f.close()
 
